@@ -18,6 +18,7 @@ struct EventController: APIRouteCollection {
         let optionalAuthGroup = addFlexCacheAuthGroup(to: eventRoutes)
         optionalAuthGroup.get(use: eventsHandler)
         optionalAuthGroup.get(eventIDParam, use: singleEventHandler)
+		optionalAuthGroup.get("locations", use: eventLocationsHandler)
         
         // endpoints available only when logged in
         let tokenAuthGroup = addTokenCacheAuthGroup(to: eventRoutes)
@@ -147,6 +148,12 @@ struct EventController: APIRouteCollection {
 			}
     	}
     }
+
+	func eventLocationsHandler(_ req: Request) throws -> EventLoopFuture<[EventLocation]> {
+		return Event.query(on: req.db).unique().sort(\.$location).all(\.$location).flatMapThrowing { locations in
+			return [EventLocation(locations[0])]
+		}
+	}
 
     
     // MARK: - tokenAuthGroup Handlers (logged in)

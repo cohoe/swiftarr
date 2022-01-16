@@ -423,6 +423,14 @@ extension EventData {
 	}
 }
 
+public struct EventLocation: Content {
+	var location: String
+
+	init (_ location: String) {
+		self.location = location
+	}
+}
+
 /// Used to create or update a `FriendlyFez`.
 ///
 /// Required by:
