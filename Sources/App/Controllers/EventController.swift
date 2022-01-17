@@ -156,6 +156,8 @@ struct EventController: APIRouteCollection {
     /// - Returns: Array of <doc:EventLocation>.
 	func eventLocationsHandler(_ req: Request) throws -> EventLoopFuture<[EventLocation]> {
 		return Event.query(on: req.db).unique().sort(\.$location).all(\.$location).flatMapThrowing { locations in
+			// This doesn't handle an emptystring location as well as I'd hope.
+			// Not sure how much to care about that right now.
 			return locations.map { location in 
 				return EventLocation(location)
 			}
