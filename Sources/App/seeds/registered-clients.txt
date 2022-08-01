@@ -1,1 +1,4 @@
 client:password:recovery key
+sam:password:sam
+heidi:password:heidi
+james:password:james
