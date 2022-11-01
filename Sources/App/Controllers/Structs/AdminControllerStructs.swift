@@ -170,3 +170,21 @@ public struct SettingsUpdateData: Content {
 	/// The wifi name of the onboard wifi network
 	var shipWifiSSID: String?
 }
+
+public struct TimeWarpData: Content {
+	var id: UUID
+	var occur_at: Date
+	var previous_offset: Int
+	var new_offset: Int
+	var status: TimeWarpStatus?
+}
+
+extension TimeWarpData {
+	init(_ tw: TimeWarp) throws {
+		id = try tw.requireID()
+		occur_at = tw.occurAt
+		previous_offset = tw.previousOffset
+		new_offset = tw.newOffset
+		status = tw.status
+	}
+}

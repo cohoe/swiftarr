@@ -13,7 +13,10 @@ struct AdminController: APIRouteCollection {
 	func registerRoutes(_ app: Application) throws {
 		
 		// convenience route group for all /api/v3/admin endpoints
-		let adminRoutes = app.grouped("api", "v3", "admin")
+		let adminRoutes: RoutesBuilder = app.grouped("api", "v3", "admin")
+
+		// @TODO move these to privileged
+		adminRoutes.get("timewarps", use: timeWarpsHandler)
 		
 		// endpoints available to TwitarrTeam and above
 		let ttAuthGroup = addTokenCacheAuthGroup(to: adminRoutes).grouped([RequireTwitarrTeamMiddleware()])
@@ -685,6 +688,14 @@ struct AdminController: APIRouteCollection {
 		}
 		try await req.redis.removeKaraokeManager(userID: targetUserID)
 		return .ok
+	}
+
+	/// `GET /api/v3/admin/timewarps`
+	func timeWarpsHandler(_ req: Request) async throws -> [TimeWarpData] {
+		let timeWarps = try await TimeWarp.query(on: req.db).all()
+		return try timeWarps.map {
+			try TimeWarpData($0)
+		}
 	}
 
 
