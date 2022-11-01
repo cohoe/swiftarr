@@ -462,6 +462,7 @@ func configureMigrations(_ app: Application) throws {
 	app.migrations.add(CreateKaraokeSongSchema(), to: .psql)
 	app.migrations.add(CreateKaraokePlayedSongSchema(), to: .psql)
 	app.migrations.add(CreateKaraokeFavoriteSchema(), to: .psql)
+	app.migrations.add(CreateTimeWarpSchema(), to: .psql)
 
 	// Third, migrations that seed the db with initial data
 	app.migrations.add(CreateAdminUsers(), to: .psql)
@@ -471,6 +472,7 @@ func configureMigrations(_ app: Application) throws {
 	if app.environment == .testing || app.environment == .development {
 		app.migrations.add(CreateTestUsers(), to: .psql)
 		app.migrations.add(CreateTestData(), to: .psql)
+		app.migrations.add(CreateTimeWarps(), to: .psql)
 	}
 	
 	// Fourth, migrations that import data from /seeds
