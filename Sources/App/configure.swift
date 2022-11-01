@@ -7,6 +7,8 @@ import LeafKit
 import Metrics
 import Prometheus
 import gd
+import Queues
+import QueuesRedisDriver
 
 /// # Launching Swiftarr
 /// 
@@ -251,9 +253,10 @@ func databaseConnectionConfiguration(_ app: Application) throws {
 	// Configure Redis connection
 	// Vapor's Redis package may not yet support TLS database connections so we support going both ways.
 	let redisPoolOptions: RedisConfiguration.PoolOptions = RedisConfiguration.PoolOptions(maximumConnectionCount: .maximumActiveConnections(2))
+	let redisConfig: RedisConfiguration
 
 	if let redisString = Environment.get("REDIS_URL"), let redisURL = URL(string: redisString) {
-		app.redis.configuration = try RedisConfiguration(url: redisURL, pool: redisPoolOptions)
+		redisConfig = try RedisConfiguration(url: redisURL, pool: redisPoolOptions)
 	} else {
 		let redisHostname = Environment.get("REDIS_HOSTNAME") ?? "localhost"
 		let redisPort = (app.environment == .testing) ? Int(Environment.get("REDIS_PORT") ?? "6380")! : 6379
@@ -261,8 +264,12 @@ func databaseConnectionConfiguration(_ app: Application) throws {
 		if redisPassword == "" {
 			redisPassword = nil
 		}
-		app.redis.configuration = try RedisConfiguration(hostname: redisHostname, port: redisPort, password: redisPassword, pool: redisPoolOptions)
+		redisConfig = try RedisConfiguration(hostname: redisHostname, port: redisPort, password: redisPassword, pool: redisPoolOptions)
 	}
+	app.redis.configuration = redisConfig
+
+	// Set up the backend of the job queueing system. This uses the same Redis as the rest of the app.
+	app.queues.use(.redis(redisConfig))
 }
 
 // Loads stored setting values from Redis. Must be called after app.boot, because Redis isn't ready until then.
