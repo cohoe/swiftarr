@@ -81,6 +81,9 @@ public func configure(_ app: Application) throws {
 
 	// Add custom commands
 	configureCommands(app)
+
+	// Scheduled Jobs
+	configureJobs(app)
 }
 
 // So, the way to get files copied into a built app with SPM is to declare them as Resources of some sort and 
@@ -601,4 +604,9 @@ func operatingSystemPlatform() -> String? {
 // These should be stored in Sources/App/Commands.
 func configureCommands(_ app: Application) {
 	app.commands.use(ScheduleMungerCommand(), as: "munge")
+}
+
+func configureJobs(_ app: Application) {
+	// app.queues.schedule(CleanupJob()).at(ISO8601DateFormatter().date(from: "2022-11-01T19:34:00-0400")!)
+	app.queues.schedule(CleanupJob()).minutely().at(0)
 }
