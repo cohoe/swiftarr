@@ -1,6 +1,8 @@
 import Vapor
 import Queues
 
+// @TODO Update any scheduled jumps in the past to an errored state
+
 struct CleanupJob: AsyncScheduledJob {
     // Add extra services here via dependency injection, if you need them.
 

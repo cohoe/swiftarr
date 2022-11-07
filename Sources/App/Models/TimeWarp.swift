@@ -29,6 +29,9 @@ final class TimeWarp: Model {
 
 	/// Status
 	@Field(key: "status") var status: TimeWarpStatus?
+
+	/// Comment
+	@Field(key: "comment") var comment: String?
 	
 	// MARK: Initialization
 	
@@ -42,12 +45,14 @@ final class TimeWarp: Model {
 	///   - previousOffset: The current TimeZone.
 	///   - newOffset: The new TimeZone.
 	///   - status: Status of the jump. @TODO this is probably not needed.
+	///   - comment: An optional comment.
 	///
-	init(occurAt: Date, previousOffset: Int, newOffset: Int) {
+	init(occurAt: Date, previousOffset: Int, newOffset: Int, comment: String? = nil) {
 		self.occurAt = occurAt
 		self.previousOffset = previousOffset
 		self.newOffset = newOffset
 		self.status = TimeWarpStatus.scheduled
+		self.comment = comment
 	}
 }
 
@@ -59,6 +64,7 @@ struct CreateTimeWarpSchema: AsyncMigration {
 				.field("previous_offset", .int, .required)
 				.field("new_offset", .int, .required)
 				.field("status", .string)
+				.field("comment", .string)
 				.create()
 	}
 	

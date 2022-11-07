@@ -177,6 +177,7 @@ public struct TimeWarpData: Content {
 	var previous_offset: Int
 	var new_offset: Int
 	var status: TimeWarpStatus?
+	var comment: String?
 }
 
 extension TimeWarpData {
@@ -186,5 +187,13 @@ extension TimeWarpData {
 		previous_offset = tw.previousOffset
 		new_offset = tw.newOffset
 		status = tw.status
+		comment = tw.comment
 	}
+}
+
+public struct TimeWarpUploadData: Content {
+	var occur_at: Date
+	var previous_offset: Int
+	var new_offset: Int
+	var comment: String?
 }

@@ -28,6 +28,7 @@ extension APIRouteCollection {
 	var accessLevelParam: PathComponent { PathComponent(":access_level") }
 	var boardgameIDParam: PathComponent { PathComponent(":boardgame_id") }
 	var songIDParam: PathComponent { PathComponent(":karaoke_song+id") }
+	var timeWarpIDParam: PathComponent { PathComponent(":timewarp_id")}
 
 
 	/// Transforms a string that might represent a date (either a `Double` or an ISO 8601
