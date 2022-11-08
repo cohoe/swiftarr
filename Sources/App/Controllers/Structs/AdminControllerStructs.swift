@@ -173,27 +173,30 @@ public struct SettingsUpdateData: Content {
 
 public struct TimeWarpData: Content {
 	var id: UUID
-	var occur_at: Date
-	var previous_offset: Int
-	var new_offset: Int
+	var occurAt: Date
+	var offset: Int
 	var status: TimeWarpStatus?
 	var comment: String?
+	// Is this needed? Not sure the relation here
+	// var createdAt: Date
+	var updatedAt: Date
+	var creator: UserHeader
 }
 
 extension TimeWarpData {
-	init(_ tw: TimeWarp) throws {
-		id = try tw.requireID()
-		occur_at = tw.occurAt
-		previous_offset = tw.previousOffset
-		new_offset = tw.newOffset
-		status = tw.status
-		comment = tw.comment
+	init(from: TimeWarp, creatorHeader: UserHeader) throws {
+		id = try from.requireID()
+		occurAt = from.occurAt
+		offset = from.offset
+		status = from.status
+		comment = from.comment
+		updatedAt = from.updatedAt ?? Date()
+		creator = creatorHeader
 	}
 }
 
 public struct TimeWarpUploadData: Content {
 	var occur_at: Date
-	var previous_offset: Int
-	var new_offset: Int
+	var offset: Int
 	var comment: String?
 }

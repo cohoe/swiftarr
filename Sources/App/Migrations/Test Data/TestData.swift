@@ -10,6 +10,7 @@ struct CreateTestData: AsyncMigration {
 		try await createTestForumPosts(on: database)
 		try await createTestLargeForumPosts(on: database)
 		try await createTestLargeSeamailThread(on: database)
+		try await createTestTimeWarps(on: database)
 	}
 
 	func revert(on database: Database) async throws {
@@ -18,6 +19,7 @@ struct CreateTestData: AsyncMigration {
 			throw Abort(.internalServerError, reason: "No category found.")
 		}
 		try await Forum.query(on: database).filter(\.$category.$id == category.requireID()).delete()
+		try await TimeWarp.query(on: database).delete()
 	}
 	
 	// Makes a single tweet by admin.
@@ -120,6 +122,17 @@ struct CreateTestData: AsyncMigration {
 		}
 		bigFez.postCount = 825
 		try await bigFez.save(on: database)
+	}
+
+	func createTestTimeWarps(on database: Database) async throws {
+		guard let admin = try await User.query(on: database).filter(\.$username == "admin").first() else {
+			throw Abort(.internalServerError, reason: "Could not find admin user.")
+		}
+		let toStCroix = try TimeWarp(creatorID: admin.requireID(), occurAt: ISO8601DateFormatter().date(from: "2022-11-01T18:00:00-0400")!, offset: -14400)
+		let fromStCroix = try TimeWarp(creatorID: admin.requireID(), occurAt: ISO8601DateFormatter().date(from: "2022-11-01T19:00:00-0400")!, offset: -18000)
+
+		try await toStCroix.save(on: database)
+		try await fromStCroix.save(on: database)
 	}
 }
 

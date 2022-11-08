@@ -475,7 +475,6 @@ func configureMigrations(_ app: Application) throws {
 	if app.environment == .testing || app.environment == .development {
 		app.migrations.add(CreateTestUsers(), to: .psql)
 		app.migrations.add(CreateTestData(), to: .psql)
-		app.migrations.add(CreateTimeWarps(), to: .psql)
 	}
 	
 	// Fourth, migrations that import data from /seeds

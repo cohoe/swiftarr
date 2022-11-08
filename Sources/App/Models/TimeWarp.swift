@@ -21,17 +21,23 @@ final class TimeWarp: Model {
 	/// Date that the time warp should occur.
 	@Field(key: "occur_at") var occurAt: Date
 
-	/// Previous offset. Used to bail if something doesn't match.
-	@Field(key: "previous_offset") var previousOffset: Int
-
-	/// New offset.
-	@Field(key: "new_offset") var newOffset: Int
+	/// Offset.
+	@Field(key: "offset") var offset: Int
 
 	/// Status
 	@Field(key: "status") var status: TimeWarpStatus?
 
 	/// Comment
 	@Field(key: "comment") var comment: String?
+
+	/// Timestamp of the model's creation, set automatically.
+	@Timestamp(key: "created_at", on: .create) var createdAt: Date?
+	
+	/// Timestamp of the model's last update, set automatically.
+	@Timestamp(key: "updated_at", on: .update) var updatedAt: Date?
+
+	/// The parent `User` who created the timewarp.
+	@Parent(key: "creator") var creator: User
 	
 	// MARK: Initialization
 	
@@ -42,16 +48,21 @@ final class TimeWarp: Model {
 	///
 	/// - Parameters:
 	///   - occurAt: Date when the warp occurs.
-	///   - previousOffset: The current TimeZone.
-	///   - newOffset: The new TimeZone.
+	///   - offset: Seconds from GMT.
 	///   - status: Status of the jump. @TODO this is probably not needed.
 	///   - comment: An optional comment.
 	///
-	init(occurAt: Date, previousOffset: Int, newOffset: Int, comment: String? = nil) {
+	// init(occurAt: Date, previousOffset: Int, offset: Int, comment: String? = nil, creator: UUID) {
+	// 	self.occurAt = occurAt
+	// 	self.offset = offset
+	// 	self.status = TimeWarpStatus.scheduled
+	// 	self.comment = comment
+	// 	self.creator = creator
+	// }
+	init(creatorID: UUID, occurAt: Date, offset: Int, comment: String? = nil) {
+		self.$creator.id = creatorID
 		self.occurAt = occurAt
-		self.previousOffset = previousOffset
-		self.newOffset = newOffset
-		self.status = TimeWarpStatus.scheduled
+		self.offset = offset
 		self.comment = comment
 	}
 }
@@ -61,10 +72,12 @@ struct CreateTimeWarpSchema: AsyncMigration {
 		try await database.schema("timewarp")
 				.id()
 				.field("occur_at", .datetime, .required)
-				.field("previous_offset", .int, .required)
-				.field("new_offset", .int, .required)
+				.field("offset", .int, .required)
 				.field("status", .string)
 				.field("comment", .string)
+				.field("created_at", .datetime)
+				.field("updated_at", .datetime)
+				.field("creator", .uuid, .required, .references("user", "id"))
 				.create()
 	}
 	

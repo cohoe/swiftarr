@@ -730,15 +730,17 @@ struct SiteAdminController: SiteControllerUtils {
 	func timeWarpCreatePageHandler(_ req: Request) async throws -> View {
 		struct TimeWarpEditContext : Encodable {
 			var trunk: TrunkContext
+			var post: MessagePostContext
 			var timeZoneName: String
 
 			init(_ req: Request) throws {
 				trunk = .init(req, title: "Create Time Warp", tab: .admin)
+				self.post = .init(forType: .timeWarp)
 				timeZoneName = Settings.shared.displayTimeZoneAbbr
 			}
 		}
 		let ctx: TimeWarpEditContext = try TimeWarpEditContext(req)
-		return try await req.view.render("admin/timeWarpEdit", ctx)
+		return try await req.view.render("admin/timewarpEdit", ctx)
 	}
 	
 	// POST /admin/timewarps/create

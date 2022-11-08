@@ -183,6 +183,8 @@ struct MessagePostContext: Encodable {
 		case announcementEdit(AnnouncementData)
 		case theme
 		case themeEdit(DailyThemeData)
+		case timeWarp
+		case timeWarpEdit(TimeWarpData)
 	}
 	
 	init(forType: InitType) {
@@ -288,6 +290,16 @@ struct MessagePostContext: Encodable {
 			showCruiseDaySelector = true
 			forumTitlePlaceholder = "Daily Theme Title"
 			messageTextPlaceholder = "Info about Daily Theme"
+		// For a Time Warp
+		case .timeWarp:
+			formAction = "/admin/timewarps/create"
+			postSuccessURL = "/admin/timewarps"
+		case .timeWarpEdit(let timeWarpData):
+			messageText = timeWarpData.comment ?? ""
+			// @TODO all of this
+			formAction = "/admin/timewarps/\(timeWarpData.id)/edit"
+			postSuccessURL = "/admin/timewarps"
+			isEdit = true
 		}
 	}
 }

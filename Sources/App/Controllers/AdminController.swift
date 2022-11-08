@@ -697,24 +697,31 @@ struct AdminController: APIRouteCollection {
 	func timeWarpsHandler(_ req: Request) async throws -> [TimeWarpData] {
 		let timeWarps = try await TimeWarp.query(on: req.db).all()
 		return try timeWarps.map {
-			try TimeWarpData($0)
+			let creatorHeader = try req.userCache.getHeader($0.$creator.id)
+			return try TimeWarpData(from: $0, creatorHeader: creatorHeader)
 		}
 	}
 
 	/// `POST /api/v3/admin/timewarps`
 	func addTimeWarpHandler(_ req: Request) async throws -> HTTPStatus {
-		// let user = try req.auth.require(UserCacheData.self)
-		// try user.guardCanCreateContent(customErrorString: "user cannot add daily themes")
+		let user = try req.auth.require(UserCacheData.self)
+		guard user.accessLevel.hasAccess(.twitarrteam) else {
+			throw Abort(.forbidden, reason: "Only TwitarrTeam can create timewarps.")
+		}
+
  		let data = try ValidatingJSONDecoder().decode(TimeWarpUploadData.self, fromBodyOf: req)
-		let timeWarp = TimeWarp(occurAt: data.occur_at, previousOffset: data.previous_offset, newOffset: data.new_offset, comment: data.comment)		
+		let timeWarp = TimeWarp(creatorID: user.userID, occurAt: data.occur_at, offset: data.offset, comment: data.comment)		
 		try await timeWarp.save(on: req.db)
 		return .created
 	}
 
 	/// `DELETE /api/v3/admin/timewarps/:timewarp_id`
 	func deleteTimeWarpHandler(_ req: Request) async throws -> HTTPStatus {
-		// let user = try req.auth.require(UserCacheData.self)
-		// try user.guardCanCreateContent(customErrorString: "user cannot delete daily themes")
+		let user = try req.auth.require(UserCacheData.self)
+		guard user.accessLevel.hasAccess(.twitarrteam) else {
+			throw Abort(.forbidden, reason: "Only TwitarrTeam can create timewarps.")
+		}
+
 		let timeWarp = try await TimeWarp.findFromParameter(timeWarpIDParam, on: req)
 		try await timeWarp.delete(on: req.db)
 		return .noContent

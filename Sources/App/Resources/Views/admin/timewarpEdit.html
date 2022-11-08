@@ -6,13 +6,13 @@
 					<nav aria-label="breadcrumb">
 						<ol class="breadcrumb">
 							<li class="breadcrumb-item"><a href="/admin">Admin</a></li>
-							<li class="breadcrumb-item"><a href="/admin/announcements">Announcements</a></li>
+							<li class="breadcrumb-item"><a href="/admin/timewarps">Time Warps</a></li>
 							<li class="breadcrumb-item active" aria-current="page">Create/Edit</li>
 						</ol>
 					</nav>
 				</div>
 				<div class="col col-auto">
-					<b>#if(post.isEdit):Edit#else:Create#endif Announcement</b>
+					<b>#if(post.isEdit):Edit#else:Create#endif Time Warp</b>
 				</div>
 			</div>
 			<ul class="container-md mx-0 px-0 list-group">
@@ -27,42 +27,39 @@
 										rows="5" 
 										name="postText" 
 										id="postText" 
-										placeholder="Announcement Text">#(post.messageText)</textarea>
+										placeholder="Comment">#(post.messageText)</textarea>
 							</div>
 							<div class="row justify-content-end mb-3">
 								<div class="col col-auto input-group-text input-group-sm py-0" id="announcementLimitsLabel"></div>
 							</div>
+
 							<div class="row mb-2">
 								<div class="col">
-									#if(timeZoneName != "EST"):
-									<div class="alert alert-warning">We are currently presenting time in #(timeZoneName)! Please do any necessary conversions when creating an announcement.</div>
-									#endif
-									Display Until: <input type="datetime-local" name="displayUntil" #if(post.displayUntil != ""):value="#localTime(post.displayUntil)"#endif> #(timeZoneName)
+									New Offset: <input type="number" name="newOffset" #if(post.new_offset != ""):value="#post.new_offset"#endif> minutes from GMT.
+								</div>
+							</div>
+							<div class="row mb-2">
+								<div class="col">
+									Previous Offset: <input type="number" name="previousOffset" #if(post.previous_offset != ""):value="#post.previous_offset)"#endif> minutes from GMT.
+								</div>
+							</div>
+
+							<div class="row mb-2">
+								<div class="col">
+									Occur At: <input type="datetime-local" name="occurAt" > @TODO TIMEZONE
 								</div>
 							</div>
 							<div class="alert alert-danger mt-3 d-none" role="alert">
 							</div>		
 							<div class="row mb-2">
 								<div class="col col-auto gx-0">
-									<button type="submit" class="btn btn-primary">Post</button>
+									<button type="submit" class="btn btn-primary">Save</button>
 								</div>
 							</div>
 						</div>
 					</form>
 				</li>
 			</ul>
-			#if(post.isEdit):
-				<div class="row">
-					<div class="col col-12">
-						<p>Remember: Editing an announcement will not change its alert status for users--so, a user that has seen
-						the unedited announcement already won't be alerted again about the edit. This means that edits are appropiate
-						for fixing typos or changing the display-until time, but substantial changes to an announcement's meaning
-						should probably be done with a new announcement.</p>
-						<p>Editing a deleted announcement <b>will</b> undelete it, also you can edit an expired announcement and 
-						bump the display-until time to the future again and it will reappear for people.</p>
-					</div>
-				</div>
-			#endif
     	</div>
 	#endexport
 #endextend
