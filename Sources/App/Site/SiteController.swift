@@ -521,6 +521,7 @@ extension SiteControllerUtils {
 	var muteWordParam: PathComponent { PathComponent(":mute_word") }
 	var boardgameIDParam: PathComponent { PathComponent(":boardgame_id") }
 	var songIDParam: PathComponent { PathComponent(":karaoke_song_id") }
+	var timeWarpIDParam: PathComponent { PathComponent(":timewarp_id")}
 	
 	@discardableResult func apiQuery<EncodableContent: Encodable>(_ req: Request, endpoint: String, query: [URLQueryItem]? = nil, 
 			method: HTTPMethod = .GET, defaultHeaders: HTTPHeaders? = nil, passThroughQuery: Bool = true, encodeContent: EncodableContent, 

@@ -43,6 +43,11 @@ struct SiteAdminController: SiteControllerUtils {
 		privateTTRoutes.post("user", userIDParam, "karaoke", "manager", "promote", use: promoteKaraokeManager)
 		privateTTRoutes.post("user", userIDParam, "karaoke", "manager", "demote", use: demoteKaraokeManager)
 
+		privateTTRoutes.get("timewarps", use: timeWarpsAdminPageHandler)
+		privateTTRoutes.get("timewarps", "create", use: timeWarpCreatePageHandler)
+		privateTTRoutes.post("timewarps", "create", use: timeWarpCreatePostHandler)
+		privateTTRoutes.post("timewarps", timeWarpIDParam, "delete", use: timeWarpDeletePostHandler)
+
 		// Mods, TwitarrTeam, and THO levels can all be promoted to, but they all demote back to Verified.
 		let privateTHORoutes = getPrivateRoutes(app).grouped(SiteRequireTHOMiddleware()).grouped("admin")
 		privateTHORoutes.get("mods", use: getModsHandler)
@@ -698,6 +703,67 @@ struct SiteAdminController: SiteControllerUtils {
 			throw "Invalid user ID"
 		}
 		let response = try await apiQuery(req, endpoint: "/admin/karaoke/manager/demote/\(userID)", method: .POST)
+		return response.status
+	}
+
+	// GET /admin/timewarps
+	func timeWarpsAdminPageHandler(_ req: Request) async throws -> View {
+		let response = try await apiQuery(req, endpoint: "/admin/timewarps")
+		let timeWarps = try response.content.decode([TimeWarpData].self)
+		// let timeWarpViews = timeWarps.map { TimeWarpData(from: $0) }
+
+		struct TimeWarpPageContext : Encodable {
+			var trunk: TrunkContext
+			var timewarps: [TimeWarpData]
+			
+			init(_ req: Request, timewarps: [TimeWarpData]) throws {
+				trunk = .init(req, title: "Time Warps", tab: .admin)
+				self.timewarps = timewarps
+			}
+		}
+
+		let ctx = try TimeWarpPageContext(req, timewarps: timeWarps)
+		return try await req.view.render("admin/timewarps", ctx)
+	}
+
+	// GET /admin/timewarps/create
+	func timeWarpCreatePageHandler(_ req: Request) async throws -> View {
+		struct TimeWarpEditContext : Encodable {
+			var trunk: TrunkContext
+			var timeZoneName: String
+
+			init(_ req: Request) throws {
+				trunk = .init(req, title: "Create Time Warp", tab: .admin)
+				timeZoneName = Settings.shared.displayTimeZoneAbbr
+			}
+		}
+		let ctx: TimeWarpEditContext = try TimeWarpEditContext(req)
+		return try await req.view.render("admin/timeWarpEdit", ctx)
+	}
+	
+	// POST /admin/timewarps/create
+	func timeWarpCreatePostHandler(_ req: Request) async throws -> HTTPStatus {
+		// let postStruct = try req.content.decode(MessagePostFormContent.self)
+		// guard let text = postStruct.postText, let displayUntil = postStruct.displayUntil else {
+		// 	throw Abort(.badRequest, reason: "Input form is missing members.")
+		// }
+		// guard let displayUntilDate = dateFromW3DatetimeString(displayUntil) else {
+		// 	throw Abort(.badRequest, reason: "Display Until date is misformatted.")
+		// }
+		// let postContent = AnnouncementCreateData(text: text, displayUntil: displayUntilDate)
+		// let postContent = TimeWarpData()
+		// try await apiQuery(req, endpoint: "/admin/timewarps", method: .POST, encodeContent: postContent)
+		return .created
+	}
+
+	// POST /admin/timewarps/ID/delete
+	//
+	// Deletes a TimeWarp.
+	func timeWarpDeletePostHandler(_ req: Request) async throws -> HTTPStatus {
+		guard let timeWarpID = req.parameters.get(timeWarpIDParam.paramString)?.percentEncodeFilePathEntry() else {
+			throw Abort(.badRequest, reason: "Missing search parameter.")
+		}
+		let response = try await apiQuery(req, endpoint: "/admin/timewarps/\(timeWarpID)", method: .DELETE)
 		return response.status
 	}
 }
