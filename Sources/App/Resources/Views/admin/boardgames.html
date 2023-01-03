@@ -16,6 +16,15 @@
 					Reloads the "JoCoGamesCatalog.json" file, found in /seeds.
 				</div>
 			</div>
+			<div class="row my-1">
+				<div class="col">
+					<div class="alert alert-warning" role="alert">
+						Heads up! This deletes then inserts. If the latter fails, the dataset will be empty until a successful reload.
+						<br>
+						Also, any user favorites of this type will be lost on reload.
+					</div>
+				</div>
+			</div>
 			<form class="ajax" action="/admin/boardgames/reload" enctype="multipart/form-data" method="POST" data-successurl="reset" id="reloadBoardGameForm">
 				<div class="row mb-2">
 					<div class="col col-auto">
