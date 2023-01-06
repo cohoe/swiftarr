@@ -16,6 +16,7 @@ struct SiteFileController: SiteControllerUtils {
 		app.get("js", "**", use: streamJSFile)
 		// This replaces FileMiddleware from Sources/App/configure.swift.
 		app.get("public", "**", use: streamPublicFile)
+		app.get("faq", use: streamFaqFile)
 
 	}
 
@@ -39,6 +40,11 @@ struct SiteFileController: SiteControllerUtils {
 	// `GET /public/:catchall`
 	func streamPublicFile(_ req: Request) throws -> Response {
 		return try streamFile(req, basePath: "public")
+	}
+
+	// `GET /faq`
+	func streamFaqFile(_ req: Request) throws -> Response {
+		return try streamFile(req, basePath: "public/faq.html")
 	}
 
 	// Wraps fileio.streamFile. Sanity-checks the path, builds a file system path to the resource,
