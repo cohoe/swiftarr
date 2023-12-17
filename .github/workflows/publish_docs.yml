@@ -11,6 +11,9 @@ jobs:
     runs-on: macos-12
     steps:
     - uses: actions/checkout@v2
+    - uses: swift-actions/setup-swift@v1
+      with:
+        swift-version: "5.8.0"
     - name: Get swift version
       run: swift --version
     - name: Publish Jazzy Docs
