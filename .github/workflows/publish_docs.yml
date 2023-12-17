@@ -4,12 +4,15 @@ on:
   push:
     branches:
     - master
+    - actions
 jobs:
   publish:
-    if: github.repository == 'jocosocial/swiftarr'
+#    if: github.repository == 'jocosocial/swiftarr'
     runs-on: macos-12
     steps:
     - uses: actions/checkout@v2
+    - name: Get swift version
+      run: swift --version
     - name: Publish Jazzy Docs
       uses: jocosocial/publish-jazzy-docs@v2.1
       with:
