@@ -11,11 +11,14 @@ jobs:
     runs-on: macos-12
     steps:
     - uses: actions/checkout@v2
+    # https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-swift
+    # https://github.com/marketplace/actions/setup-swift
     - uses: swift-actions/setup-swift@v1
       with:
         swift-version: "5.8.0"
     - name: Get swift version
       run: swift --version
+    - run: swift build
     - name: Publish Jazzy Docs
       uses: jocosocial/publish-jazzy-docs@v2.1
       with:
