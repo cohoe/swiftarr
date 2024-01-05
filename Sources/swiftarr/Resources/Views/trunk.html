@@ -143,6 +143,16 @@
 							#endif
 						</li>
 					#endif
+					#if(trunk.userIsTHO):
+						<li class="nav-item d-flex align-items-center">
+							<a class="nav-link#if(trunk.tab == "tho"): active#endif" href="/tho">
+								<span class="#if(trunk.alertCounts.moderatorData.newTTSeamailMessageCount > 0):border-bottom border-danger#endif">Admin Pages</span>
+							</a>
+							#if(trunk.alertCounts.moderatorData.newTTSeamailMessageCount > 0):
+								<span class="text-muted"><i>#(trunk.alertCounts.moderatorData.newTTSeamailMessageCount) Msg#if(trunk.alertCounts.moderatorData.newModeratorSeamailMessageCount > 1):s#endif</i></span>
+							#endif
+						</li>
+					#endif
 					<li>
 						<hr class="main-menu-divider">
 					</li>

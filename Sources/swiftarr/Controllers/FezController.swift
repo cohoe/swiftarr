@@ -170,7 +170,7 @@ struct FezController: APIRouteCollection {
 	///
 	/// Moderators and above can use the `foruser` query parameter to access pseudo-accounts:
 	///
-	/// - `?foruser=NAME` - Access the "moderator" or "twitarrteam" seamail accounts.
+	/// - `?foruser=NAME` - Access the "moderator" or "twitarrteam" or "tho" seamail accounts.
 	///
 	/// `/GET /api/v3/fez/types` is  the canonical way to get the list of acceptable values. Type and excludetype are exclusive options, obv.
 	///
@@ -316,7 +316,7 @@ struct FezController: APIRouteCollection {
 	///
 	/// Moderators and above can use the `foruser` query parameter to access pseudo-accounts:
 	///
-	/// - `?foruser=NAME` - Access the "moderator" or "twitarrteam" seamail accounts.
+	/// - `?foruser=NAME` - Access the "moderator" or "twitarrteam" or "tho" seamail accounts.
 	///
 	/// When a member calls this method, it updates the member's `readCount`, marking all posts read up to `start + limit`.
 	/// However, the returned readCount is the value before updating. If there's 5 posts in the chat, and the member has read 3 of them, the returned
@@ -1074,8 +1074,8 @@ extension FezController {
 		return user.accessLevel.hasAccess(.moderator) || fez.participantArray.contains(user.userID)
 	}
 
-	// For both Moderator and TwittarTeam access levels, there's a special user account with the same name.
-	// Seamail to @moderator and @TwitarrTeam may be read by any user with the respective access levels.
+	// For Moderator, TwittarTeam, and THO access levels, there's a special user account with the same name.
+	// Seamail to @moderator, @TwitarrTeam, and @THO may be read by any user with the respective access levels.
 	// Instead of designing a new entity for these group inboxes, they're just users that can't log in.
 	func getEffectiveUser(user: UserCacheData, req: Request) throws -> UserCacheData {
 		guard let effectiveUserParam = req.query[String.self, at: "foruser"] else {
@@ -1093,6 +1093,12 @@ extension FezController {
 				throw Abort(.forbidden, reason: "Only TwitarrTeam members can access TwitarrTeam seamail.")
 			}
 			effectiveUser = ttUser
+		}
+		if effectiveUserParam.lowercased() == "tho", let thoUser = req.userCache.getUser(username: "THO") {
+			guard user.accessLevel.hasAccess(.tho) else {
+				throw Abort(.forbidden, reason: "Only THO members can access THO seamail.")
+			}
+			effectiveUser = thoUser
 		}
 		return effectiveUser
 	}
@@ -1115,6 +1121,11 @@ extension FezController {
 			fez.participantArray.contains(modUser.userID)
 		{
 			return modUser
+		}
+		if user.accessLevel >= .tho, let thoUser = req.userCache.getUser(username: "THO"),
+			fez.participantArray.contains(thoUser.userID)
+		{
+			return thoUser
 		}
 		// User isn't a member of the fez, but they're still the effective user in this case.
 		return user

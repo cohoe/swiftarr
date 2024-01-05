@@ -357,7 +357,7 @@ struct SiteSeamailController: SiteControllerUtils {
 	// WS /seamail/:seamail_ID/socket
 	//
 	// Takes the `foruser` parameter which is forwarded to `/api/v3/fez/:fez_ID`
-	// - `?foruser=NAME` - Access the "moderator" or "twitarrteam" seamail accounts.
+	// - `?foruser=NAME` - Access the "moderator", "twitarrteam", or "THO" seamail accounts.
 	//
 	// Opens a WebSocket that receives updates on the given Seamail. This websocket is intended for use by the
 	// web client and updates are in the form of HTML fragments.
@@ -404,6 +404,9 @@ private func titleAndTab(for req: Request) -> (String, TrunkContext.Tab) {
 		tab = .admin
 	case "moderator":
 		title = "Moderator Seamail"
+		tab = .moderator
+	case "tho":
+		title = "THO Seamail"
 		tab = .moderator
 	default:
 		title = "Seamail"
