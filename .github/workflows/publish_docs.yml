@@ -8,14 +8,14 @@ on:
 jobs:
   publish:
 #    if: github.repository == 'jocosocial/swiftarr'
-    runs-on: macos-12
+    runs-on: macos-13
     steps:
     - uses: actions/checkout@v2
     # https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-swift
     # https://github.com/marketplace/actions/setup-swift
     - uses: swift-actions/setup-swift@v1
       with:
-        swift-version: "5.8.0"
+        swift-version: "5.9.2"
     - name: Get swift version
       run: swift --version
     - run: swift build -v
