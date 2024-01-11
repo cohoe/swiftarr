@@ -8,7 +8,7 @@ on:
 jobs:
   publish:
 #    if: github.repository == 'jocosocial/swiftarr'
-    runs-on: macos-12
+    runs-on: macos-13
     steps:
     - uses: actions/checkout@v2
     # https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-swift
