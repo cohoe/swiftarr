@@ -140,8 +140,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swift-server/RediStack.git",
       "state" : {
-        "revision" : "622ce440f90d79b58e45f3a3efdd64c51d1dfd17",
-        "version" : "1.6.2"
+        "revision" : "43d94452a8be6ebebb07ec7bcf4e6f19888e1251",
+        "version" : "1.4.1"
       }
     },
     {
