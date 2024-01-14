@@ -25,6 +25,7 @@ struct EventController: APIRouteCollection {
 		tokenAuthGroup.post(eventIDParam, "favorite", "remove", use: favoriteRemoveHandler)
 		tokenAuthGroup.delete(eventIDParam, "favorite", use: favoriteRemoveHandler)
 		tokenAuthGroup.get("favorites", use: favoritesHandler)
+		tokenAuthGroup.post("reload", use: triggerScheduleUpdateHandler)
 	}
 
 	// MARK: - Open Access Handlers
@@ -218,6 +219,11 @@ struct EventController: APIRouteCollection {
 			.join(EventFavorite.self, on: \Event.$id == \EventFavorite.$event.$id)
 			.filter(EventFavorite.self, \.$user.$id == user.userID).sort(\.$startTime, .ascending).all()
 		return try events.map { try EventData($0, isFavorite: true) }
+	}
+
+	func triggerScheduleUpdateHandler(_ req: Request) async throws -> HTTPStatus {
+		try await req.queue.dispatch(UpdateJob.self, .init())
+		return .ok
 	}
 
 	// MARK: Utilities

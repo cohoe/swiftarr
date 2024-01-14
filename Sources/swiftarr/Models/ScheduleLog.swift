@@ -58,7 +58,10 @@ final class ScheduleLog: Model {
 	///   - diff: The changes between the old and new schedule..
 	init(error: Error) throws {
 		self.automaticUpdate = true			// Manual updates don't log failures, as they can report the failure directly to the admin.
-		errorResult = error.localizedDescription
+		// This used to be error.localizedDescription, but that is worthless.
+		// Former Example: "The operation could not be completed. (Swift.String error 1.)"
+		// New Example: "Update threw an error: Abort.400: This update deletes more than 50 events..."
+		errorResult = String(reflecting: error)
 		changeCount = 0
 	}
 }
