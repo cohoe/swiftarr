@@ -86,8 +86,8 @@ struct PersonalEventController: APIRouteCollection {
 			let cruiseStartDate = Settings.shared.cruiseStartDate()
 			// This is close to Events, but not quite.
 			// https://github.com/jocosocial/swiftarr/issues/230
-			let searchStartTime = portCalendar.date(byAdding: .day, value: cruiseday, to: cruiseStartDate)
-			let searchEndTime = portCalendar.date(byAdding: .day, value: cruiseday + 1, to: cruiseStartDate)
+			let searchStartTime = portCalendar.date(byAdding: .day, value: cruiseday - 1, to: cruiseStartDate)
+			let searchEndTime = portCalendar.date(byAdding: .day, value: cruiseday, to: cruiseStartDate)
 			if let start = searchStartTime, let end = searchEndTime {
 				query.filter(\.$startTime >= start).filter(\.$startTime < end)
 			}

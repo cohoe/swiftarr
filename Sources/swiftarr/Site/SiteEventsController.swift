@@ -2,6 +2,8 @@ import Crypto
 import FluentSQL
 import Vapor
 
+// MARK: Page Context Structs
+
 fileprivate struct EventsQueryStruct: Content {
 	var search: String?
 	var type: String?
@@ -27,9 +29,12 @@ fileprivate struct EventPageContext: Encodable {
 	var cruiseEndDate: Date
 	var webcalURL: String
 	var query: EventsQueryStruct
+	var personalevents: [PersonalEventData]
+	var scheduleItems: [ScheduleItem]
 
-	fileprivate init(_ req: Request, events: [EventData], dayOfCruise: Int, filterString: String, query: EventsQueryStruct) {
+	fileprivate init(_ req: Request, events: [EventData], dayOfCruise: Int, filterString: String, query: EventsQueryStruct, personalEvents: [PersonalEventData]) {
 		self.events = events
+		self.personalevents = personalEvents
 		trunk = .init(req, title: "Events", tab: .events)
 		self.query = query
 		isBeforeCruise = Date() < Settings.shared.cruiseStartDate()
@@ -66,8 +71,50 @@ fileprivate struct EventPageContext: Encodable {
 		else {
 			self.webcalURL = ""
 		}
+		self.scheduleItems = events.map { ScheduleItem.event($0) } + personalEvents.map { ScheduleItem.personalEvent($0) }
+		self.scheduleItems = self.scheduleItems.sorted { $0.startTime < $1.startTime }
+		self.scheduleItems.forEach { scheduleItem in 
+			print(scheduleItem)
+		}
 	}
 }
+
+fileprivate struct PersonalEventCreateUpdateContext: Encodable {
+	var trunk: TrunkContext
+	var pageTitle: String
+	var personalEvent: PersonalEventData?
+	var formAction: String
+	var eventTitle: String = ""
+	var eventDescription: String = ""
+	var eventStartTime: Date?
+	var eventDurationMinutes: Int = 0
+	// @TODO participants
+	var submitButtonTitle: String = "Create"
+
+	fileprivate init(_ req: Request, personalEventToUpdate: PersonalEventData? = nil) {
+		if let personalEvent = personalEventToUpdate {
+			self.trunk = .init(req, title: "Update Personal Event", tab: .events)
+			self.formAction = "/events/personal/\(personalEvent.personalEventID)/update"
+			self.submitButtonTitle = "Update"
+			self.pageTitle = "Update \(personalEvent.title)"
+		} else {
+			self.trunk = .init(req, title: "Create Personal Event", tab: .events)
+			self.formAction = "/events/personal/create"
+			self.pageTitle = "Create Personal Event"
+		}
+	}
+}
+
+// Form data from the Create/Update PersonalEvent form
+struct PersonalEventFormContent: Codable {
+	var title: String
+	var description: String
+	var starttime: String
+	var duration: Int
+	// @TODO participants
+}
+
+// MARK: SiteEventsController
 
 struct SiteEventsController: SiteControllerUtils {
 
@@ -92,6 +139,11 @@ struct SiteEventsController: SiteControllerUtils {
 		let privateRoutes = getPrivateRoutes(app, feature: .schedule)
 		privateRoutes.post("events", eventIDParam, "favorite", use: eventsAddRemoveFavoriteHandler)
 		privateRoutes.delete("events", eventIDParam, "favorite", use: eventsAddRemoveFavoriteHandler)
+
+		// Personal Events
+		privateRoutes.get("events", "personal", "create", use: personalEventCreateHandler)
+		privateRoutes.post("events", "personal", "create", use: personalEventCreateUpdatePostHandler)
+		privateRoutes.post("events", "personal", personalEventIDParam, "update", use: personalEventCreateUpdatePostHandler)
 	}
 
 	// MARK: - Events
@@ -156,9 +208,11 @@ struct SiteEventsController: SiteControllerUtils {
 		}
 
 		let response = try await apiQuery(req, endpoint: "/events", query: components.queryItems, passThroughQuery: false)
+		let personalEventResponse = try await apiQuery(req, endpoint: "/personalevents", query: components.queryItems, passThroughQuery: false)
 		let events: [EventData] = try response.content.decode([EventData].self)
-		let eventContext = EventPageContext(req, events: events, dayOfCruise: dayOfCruise, filterString: filterString, query: queryStruct)
-		return try await req.view.render("events", eventContext)
+		let personalEvents: [PersonalEventData] = try personalEventResponse.content.decode([PersonalEventData].self)
+		let eventContext = EventPageContext(req, events: events, dayOfCruise: dayOfCruise, filterString: filterString, query: queryStruct, personalEvents: personalEvents)
+		return try await req.view.render("Event/events", eventContext)
 	}
 
 	// `GET /events/:event_id`
@@ -181,8 +235,8 @@ struct SiteEventsController: SiteControllerUtils {
 		}
 
 		dayOfCruise = (7 + thisWeekday - Settings.shared.cruiseStartDayOfWeek) % 7 + 1
-		let eventContext = EventPageContext(req, events: events, dayOfCruise: dayOfCruise, filterString: filterString, query: queryStruct)
-		return try await req.view.render("events", eventContext)
+		let eventContext = EventPageContext(req, events: events, dayOfCruise: dayOfCruise, filterString: filterString, query: queryStruct, personalEvents: [])
+		return try await req.view.render("Event/events", eventContext)
 	}
 
 	// `GET /events/:event_id/calendarevent.ics`
@@ -241,13 +295,48 @@ struct SiteEventsController: SiteControllerUtils {
 		return try await icsString.encodeResponse(status: .ok, headers: headers, for: req)
 	}
 
-	// Glue code that calls the API to favorite/unfavorite an event. Returns 201/204 on success.
+	/// `POST /events/:event_id/favorite`
+	/// `DELETE /events/:event_id/favorite`
+	///
+	/// Glue code that calls the API to favorite/unfavorite an event. Returns 201/204 on success.
 	func eventsAddRemoveFavoriteHandler(_ req: Request) async throws -> HTTPStatus {
 		guard let eventID = req.parameters.get(eventIDParam.paramString)?.percentEncodeFilePathEntry() else {
 			throw Abort(.badRequest, reason: "Missing event ID parameter.")
 		}
 		let response = try await apiQuery(req, endpoint: "/events/\(eventID)/favorite", method: req.method)
 		return response.status
+	}
+
+	// MARK: Personal Events
+
+	/// `GET /events/personal/create`
+	func personalEventCreateHandler(_ req: Request) async throws -> View {
+		let ctx: PersonalEventCreateUpdateContext = PersonalEventCreateUpdateContext(req)
+		return try await req.view.render("Event/personalEventCreateUpdate", ctx)
+	}
+
+	/// `POST /events/personal/create`
+	/// `POST /events/personal/:event_id/update`
+	func personalEventCreateUpdatePostHandler(_ req: Request) async throws -> HTTPStatus {
+		let formData = try req.content.decode(PersonalEventFormContent.self)
+		
+		guard let startTime = dateFromW3DatetimeString(formData.starttime) else {
+			throw Abort(.badRequest, reason: "Couldn't parse start time")
+		}
+		let endTime = startTime.addingTimeInterval(TimeInterval(formData.duration) * 60.0)
+		let fezContentData = PersonalEventContentData(
+			title: formData.title,
+			description: formData.description,
+			startTime: startTime,
+			endTime: endTime,
+			participants: [] // @TODO
+		)
+		var path = "/personalevents/create"
+		if let updatingPersonalEventID = req.parameters.get(personalEventIDParam.paramString)?.percentEncodeFilePathEntry() {
+			path = "/personalevents/\(updatingPersonalEventID)/update"
+		}
+		try await apiQuery(req, endpoint: path, method: .POST, encodeContent: fezContentData)
+		return .created
 	}
 
 	// MARK: - Utility fns
