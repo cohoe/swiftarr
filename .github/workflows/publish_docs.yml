@@ -6,7 +6,7 @@ on:
     - master
 jobs:
   build:
-    if: github.repository == 'jocosocial/swiftarr'
+    # if: github.repository == 'jocosocial/swiftarr'
     runs-on: macos-15
     steps:
     - name: Install SourceKitten
