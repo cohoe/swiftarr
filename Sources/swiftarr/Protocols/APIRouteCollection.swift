@@ -220,7 +220,7 @@ extension APIRouteCollection {
 				for userID in users {
 					group.addTask { try await req.redis.incrementIntInUserHash(field: type, userID: userID) }
 				}
-			case .followedEventStarting(_), .joinedLFGStarting(_), .personalEventStarting(_), .chatCanceled(_):
+			case .followedEventStarting(_), .joinedLFGStarting(_), .personalEventStarting(_), .chatCanceled(_, _):
 				break
 			case .microKaraokeSongReady(_):
 				for userID in users {
@@ -491,7 +491,6 @@ extension APIRouteCollection {
 	// Calculates the start time of the earliest future joined LFG. Caches the value in Redis for quick access.
 	func storeNextJoinedAppointment(userID: UUID, on req: Request) async throws -> (Date, UUID)? {
 		let nextJoinedLFG = try await getNextAppointment(userID: userID, db: req.db)
-
 		// This will "clear" the next LFG values of the UserNotificationData if no LFGs match the
 		// query (which is to say there is no next LFG). Thought about using subtractNotifications()
 		// but this just seems easier for now.
