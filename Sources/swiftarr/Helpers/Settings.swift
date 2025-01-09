@@ -245,14 +245,43 @@ extension Settings {
 	// their actual times. So at various points in the app we display the data of "what would be".
 	// This takes it a step further and pretends based on the time rather than just a weekday.
 	func getDateInCruiseWeek() -> Date {
-		// @TODO Ensure this honors or passes sanity check for portTimeZone or something like that.
-		// It's probably OK, but we should be sure.
-		let secondsPerWeek = 60 * 60 * 24 * 7
-		let partialWeek = Int(Date().timeIntervalSince(Settings.shared.cruiseStartDate())) % secondsPerWeek
-		// When startDate is in the future, the partialWeek is negative. Which if taken at face value returns
-		// the current date (start - time since start = now). When startDate is in the past, the partialWeek is 
-		// positive. Since the whole point of this functionality is to time travel, we abs() it.
-		return Settings.shared.cruiseStartDate() + abs(TimeInterval(partialWeek))
+		// This was a first pass at this function. However it didn't deal with DST correctly.
+		// When reality was in EST events and LFGs would trigger 1 hour too early.
+		// // @TODO Ensure this honors or passes sanity check for portTimeZone or something like that.
+		// // It's probably OK, but we should be sure.
+		// let secondsPerWeek = 60 * 60 * 24 * 7
+		// let partialWeek = Int(Date().timeIntervalSince(Settings.shared.cruiseStartDate())) % secondsPerWeek
+		// // When startDate is in the future, the partialWeek is negative. Which if taken at face value returns
+		// // the current date (start - time since start = now). When startDate is in the past, the partialWeek is 
+		// // positive. Since the whole point of this functionality is to time travel, we abs() it.
+		// return Settings.shared.cruiseStartDate() + abs(TimeInterval(partialWeek))
+		
+		// This code was lifted from EventController
+		let cruiseStartDate = Settings.shared.cruiseStartDate()
+		var filterDate = Date()
+		// If the cruise is in the future or more than 10 days in the past, construct a fake date during the cruise week
+		let secondsPerDay = 24 * 60 * 60.0
+		if cruiseStartDate.timeIntervalSinceNow > 0
+			|| cruiseStartDate.timeIntervalSinceNow < 0 - Double(Settings.shared.cruiseLengthInDays) * secondsPerDay
+		{
+			// This filtering nonsense is whack. There is a way to do .DateComponents() without needing the in: but then you
+			// have to specify the Calendar.Components that you want. Since I don't have enough testing around this I'm going
+			// to keep pumping the timezone in which lets me bypass that requirement.
+			let cal = Settings.shared.getPortCalendar()
+			var filterDateComponents = cal.dateComponents(in: Settings.shared.portTimeZone, from: cruiseStartDate)
+			let currentDateComponents = cal.dateComponents(in: Settings.shared.portTimeZone, from: Date())
+			filterDateComponents.hour = currentDateComponents.hour
+			filterDateComponents.minute = currentDateComponents.minute
+			filterDateComponents.second = currentDateComponents.second
+			filterDate = cal.date(from: filterDateComponents) ?? Date()
+			if let currentDayOfWeek = currentDateComponents.weekday {
+				let daysToAdd = (7 + currentDayOfWeek - Settings.shared.cruiseStartDayOfWeek) % 7
+				if let adjustedDate = cal.date(byAdding: .day, value: daysToAdd, to: filterDate) {
+					filterDate = adjustedDate
+				}
+			}
+		}
+		return filterDate
 	}
 
 	// This is sufficiently complex enough to merit its own function. Unlike the Settings.shared.getDateInCruiseWeek(),

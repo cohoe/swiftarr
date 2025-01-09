@@ -448,59 +448,18 @@ extension APIRouteCollection {
 		try await req.redis.addUsersWithStateChange([user.userID])
 	}
 
-	// @TODO this logic needs moved into the getReferenceDate
-	// @TODO add tests for date logic functions
-	func getOldFilterDate() -> Date {
-		let cruiseStartDate = Settings.shared.cruiseStartDate()
-		var filterDate = Date()
-		// If the cruise is in the future or more than 10 days in the past, construct a fake date during the cruise week
-		let secondsPerDay = 24 * 60 * 60.0
-		if cruiseStartDate.timeIntervalSinceNow > 0
-			|| cruiseStartDate.timeIntervalSinceNow < 0 - Double(Settings.shared.cruiseLengthInDays) * secondsPerDay
-		{
-			// This filtering nonsense is whack. There is a way to do .DateComponents() without needing the in: but then you
-			// have to specify the Calendar.Components that you want. Since I don't have enough testing around this I'm going
-			// to keep pumping the timezone in which lets me bypass that requirement.
-			let cal = Settings.shared.getPortCalendar()
-			var filterDateComponents = cal.dateComponents(in: Settings.shared.portTimeZone, from: cruiseStartDate)
-			let currentDateComponents = cal.dateComponents(in: Settings.shared.portTimeZone, from: Date())
-			print("old:filterDateComponents", filterDateComponents)
-			print("old:currentDateComponents", currentDateComponents)
-			filterDateComponents.hour = currentDateComponents.hour
-			filterDateComponents.minute = currentDateComponents.minute
-			filterDateComponents.second = currentDateComponents.second
-			filterDate = cal.date(from: filterDateComponents) ?? Date()
-			print("old:filterDate", filterDate)
-			if let currentDayOfWeek = currentDateComponents.weekday {
-				let daysToAdd = (7 + currentDayOfWeek - Settings.shared.cruiseStartDayOfWeek) % 7
-				print("old:daysToAdd", daysToAdd)
-				if let adjustedDate = cal.date(byAdding: .day, value: daysToAdd, to: filterDate) {
-					print("old:adjustedDate", adjustedDate)
-					filterDate = adjustedDate
-				}
-			}
-		}
-		return filterDate
-	}
-
 	// Calculates the start time of the earliest future followed event. Caches the value in Redis for quick access.
 	// The "current" reference date depends on a setting whether to operate in "real time" (aka what you the human
 	// reading this comment right now experience as the current date), or "cruise time" (aka what someone experienced)
 	// on board in the past or in the future.
 	func storeNextFollowedEvent(userID: UUID, on req: Request) async throws -> (Date, UUID)? {
-		let referenceDate: Date = Settings.shared.getScheduleReferenceDate(Settings.shared.upcomingEventNotificationSetting)
-		let newfilterDate = Settings.shared.timeZoneChanges.portTimeToDisplayTime(referenceDate)
-		let filterDate = getOldFilterDate()
-		print("Old Filter Date", filterDate, "New", newfilterDate, "Reference Date", referenceDate)
-		print("Current Filter Date", Settings.shared.getCurrentFilterDate())
-		print("Date in Cruise Week", Settings.shared.getDateInCruiseWeek())
+		let filterDate: Date = Settings.shared.getScheduleReferenceDate(Settings.shared.upcomingEventNotificationSetting)
 		let nextFavoriteEvent = try await Event.query(on: req.db)
 			.filter(\.$startTime > filterDate)
 			.sort(\.$startTime, .ascending)
 			.join(EventFavorite.self, on: \Event.$id == \EventFavorite.$event.$id)
 			.filter(EventFavorite.self, \.$user.$id == userID)
 			.first()
-		print(nextFavoriteEvent?.title, nextFavoriteEvent?.startTime)
 		// This will "clear" the next Event values of the UserNotificationData if no Events match the
 		// query (which is to say there is no next Event). Thought about using subtractNotifications()
 		// but this just seems easier for now.
