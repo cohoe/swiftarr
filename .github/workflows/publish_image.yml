@@ -17,6 +17,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # We do this hack in the Dockerfile so that we can build container images
+      # in the isolated environment of the server on-board. It just needs a
+      # directory to stat.
+      - name: Create build context directory
+        run: mkdir -p .build/checkouts
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
