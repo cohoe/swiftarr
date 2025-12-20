@@ -192,3 +192,9 @@ associated AddedToChat field value increase.
 
 ## Feb 15, 2025
 * Added new `Performer` delete endpoint `DELETE /api/v3/performer/:performer_ID` (for moderators)
+
+## Nov 05, 2025
+* Added `discordUsername` to `ProfilePublicData`.
+
+## Dec 13, 2025
+* New open-access endpoint `GET /api/v3/client/settings` returns cruise configuration data (`ClientSettingsData`) including canonical hostnames, cruise start date, cruise length, port timezone info, schedule URL, ship WiFi SSID, pre-registration status, and database installation ID. Allows client apps to fetch environment configuration dynamically instead of hardcoding values in bundled env files.

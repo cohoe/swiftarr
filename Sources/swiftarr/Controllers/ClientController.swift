@@ -1,9 +1,9 @@
 import Fluent
 import FluentSQL
 import Metrics
+import Prometheus
 import Redis
 import Vapor
-import Prometheus
 
 /// The collection of `/api/v3/client/*` route endpoints and handler functions that provide
 /// bulk retrieval services for registered API clients.
@@ -20,16 +20,20 @@ struct ClientController: APIRouteCollection {
 
 		// open access endpoints
 		clientRoutes.get("health", use: healthHandler)
+		clientRoutes.get("settings", use: settingsHandler)
 
 		// endpoints available only when logged in
 		let tokenAuthGroup = clientRoutes.tokenRoutes()
 		tokenAuthGroup.get("user", "updates", "since", ":date", use: userUpdatesHandler)
 		tokenAuthGroup.get("usersearch", use: userSearchHandler)
 
-		// Endpoints available with HTTP Basic auth. I'd prefer token auth for this, but setting that up looks difficult.
-		let basicAuthGroup = clientRoutes.addBasicAuthRequirement()
-		basicAuthGroup.get("metrics", use: prometheusMetricsSource)
-		basicAuthGroup.post("alert", use: prometheusAlertHandler)
+		// Endpoints available with HTTP Basic auth.
+		// This does not use .addBasicAuthRequirement() because it should exempt from the minimum access level requirement
+		// and only available to service accounts.
+		// https://github.com/jocosocial/swiftarr/issues/373
+		let saBasicAuthGroup = clientRoutes.addServiceAccountBasicAuthRequirement()
+		saBasicAuthGroup.get("metrics", use: prometheusMetricsSource)
+		saBasicAuthGroup.post("alert", use: prometheusAlertHandler)
 	}
 
 	// MARK: - tokenAuthGroup Handlers (logged in)
@@ -129,13 +133,20 @@ struct ClientController: APIRouteCollection {
 	/// - Throws: 403 error if user is not a registered client.
 	/// - Returns: Data about what requests are being called, how long they take to complete, how the databases are doing, what the server's CPU utilization is,
 	/// plus a bunch of other metrics data. All the data is in some opaquish Prometheus format.
-	func prometheusMetricsSource(_ req: Request) async throws -> [UInt8] {
-		guard  let prom = MetricsSystem.factory as? PrometheusMetricsFactory else {
-			throw Abort(.internalServerError, reason: "Couldn't get Prometheus instance from MetricsSystem--Prometheus may not be configured.")
+	func prometheusMetricsSource(_ req: Request) async throws -> Response {
+		guard let prom = MetricsSystem.factory as? PrometheusMetricsFactory else {
+			throw Abort(
+				.internalServerError,
+				reason: "Couldn't get Prometheus instance from MetricsSystem--Prometheus may not be configured."
+			)
 		}
 		var buffer = [UInt8]()
 		prom.registry.emit(into: &buffer)
-		return buffer
+		let data = Data(buffer)
+		var headers = HTTPHeaders()
+		headers.contentType = .plainText
+		let body = Response.Body(data: data)
+		return Response(status: .ok, headers: headers, body: body)
 	}
 
 	/// `POST /api/v3/client/alert`
@@ -218,6 +229,23 @@ struct ClientController: APIRouteCollection {
 		let _ = try await User.query(on: req.db).first()
 
 		return HealthResponse()
+	}
+
+	/// `GET /api/v3/client/settings`
+	///
+	/// Returns publicly available configuration information about the current cruise/sailing.
+	/// This allows client apps to fetch environment configuration rather than hardcoding values.
+	///
+	/// - Returns: `ClientSettingsData` containing cruise and server configuration.
+	func settingsHandler(_ req: Request) async throws -> ClientSettingsData {
+		var installationID = "unknown"
+		if let sqldb = req.db as? SQLDatabase {
+			if let row = try await sqldb.raw("SELECT system_identifier FROM pg_control_system()").first() {
+				let id = try row.decode(column: "system_identifier", as: Int64.self)
+				installationID = String(id)
+			}
+		}
+		return ClientSettingsData(installationID: installationID)
 	}
 }
 

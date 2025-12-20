@@ -394,11 +394,6 @@ struct SwiftarrConfigurator {
 			app.http.server.configuration.hostname = "127.0.0.1"
 		}
 
-		// Make our chosen hostname a canonical hostname that Settings knows about
-		if !Settings.shared.canonicalHostnames.contains(app.http.server.configuration.hostname) {
-			Settings.shared.canonicalHostnames.append(app.http.server.configuration.hostname)
-		}
-
 		// Load the FQDNs that we expect Twitarr to be available from. This feeds into link processing to help
 		// ensure a smooth experience between users who enter the site via different hostnames. For example:
 		// http://joco.hollandamerica.com and https://twitarr.com are both expected to function and bring you
@@ -412,9 +407,12 @@ struct SwiftarrConfigurator {
 			Settings.shared.canonicalHostnames = canonicalHostnamesStr.split(separator: ",").map { String($0) }
 			primaryHostAndPort = Settings.shared.canonicalHostnames.first ?? "localhost:\(port)"
 		}
-		else if !app.http.server.configuration.hostname.isEmpty {
-			Settings.shared.canonicalHostnames.append(app.http.server.configuration.hostname)
+		// Use a Set to collect hostnames and prevent duplicates, then convert back to array
+		var hostnameSet = Set(Settings.shared.canonicalHostnames)
+		if !app.http.server.configuration.hostname.isEmpty {
+			hostnameSet.insert(app.http.server.configuration.hostname)
 		}
+		Settings.shared.canonicalHostnames = Array(hostnameSet)
 		configLog.debug("Setting canonical hostnames: \(Settings.shared.canonicalHostnames)")
 
 		// canonicalServerURLComponents is used when the server needs to build an externally-visible URL pointing to itself.
