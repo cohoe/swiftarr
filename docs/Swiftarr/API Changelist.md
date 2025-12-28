@@ -208,3 +208,4 @@ associated AddedToChat field value increase.
 * `GET /api/v3/client/settings` now also includes `minAccessLevel` and `maxForumPostImages`.
 * Added `maxForumPostImages` to `SettingsAdminData`.
 * `PostContentData` `images` can now incude up to 8 `ImageUploadData`, conditional based on role and settings.
+* New TwitarrTeam endpoint to trigger forum reaper job `POST /api/v3/admin/forum/reaper`.
