@@ -210,3 +210,6 @@ associated AddedToChat field value increase.
 * `PostContentData` `images` can now incude up to 8 `ImageUploadData`, conditional based on role and settings.
 * New TwitarrTeam endpoint to trigger forum reaper job `POST /api/v3/admin/forum/reaper`.
 * `GET /api/v3/photostream` now supports `eventID` and `locationName` query parameters.
+
+## Jan 25, 2026
+* `GET /api/v3/fez/joined` with `onlynew=[true,false]` now include/exclude newly added-to fezzes.
