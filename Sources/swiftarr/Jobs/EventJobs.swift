@@ -97,6 +97,7 @@ public struct UserEventNotificationJob: AsyncScheduledJob {
 		}
 
 		let filterDate = Settings.shared.getScheduleReferenceDate(Settings.shared.upcomingEventNotificationSetting)
+		context.logger.info("Filter date: \(filterDate)")
 		let portCalendar = Settings.shared.getPortCalendar()
 		let filterStartTime = portCalendar.date(
 			byAdding: .second,
