@@ -112,6 +112,7 @@ public struct UserEventNotificationJob: AsyncScheduledJob {
 			let eventID = try event.requireID()
 			let favoriteUserIDs = try event.favorites.map { try $0.requireID() }
 			let infoStr = "\(event.title) is starting Soon™ in \(event.location)."
+			context.logger.debug("\"\(infoStr)\" sent to \(favoriteUserIDs.count) users")
 			await context.application.notificationSockets.forwardToSockets(
 				app: context.application,
 				idList: favoriteUserIDs,
