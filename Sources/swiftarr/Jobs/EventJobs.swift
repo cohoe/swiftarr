@@ -108,11 +108,12 @@ public struct UserEventNotificationJob: AsyncScheduledJob {
 			.with(\.$favorites)
 			.filter(\.$startTime == filterStartTime)
 			.all()
+		context.logger.info("Found \(upcomingEvents.count) upcoming events starting at \(filterStartTime)")
 		for event in upcomingEvents {
 			let eventID = try event.requireID()
 			let favoriteUserIDs = try event.favorites.map { try $0.requireID() }
 			let infoStr = "\(event.title) is starting Soon™ in \(event.location)."
-			context.logger.debug("\"\(infoStr)\" sent to \(favoriteUserIDs.count) users")
+			context.logger.info("\"\(infoStr)\" sent to \(favoriteUserIDs.count) users")
 			await context.application.notificationSockets.forwardToSockets(
 				app: context.application,
 				idList: favoriteUserIDs,
