@@ -251,3 +251,5 @@ additive; the existing count fields are unchanged and are now derived from these
 * New endpoint `POST /api/v3/auth/username` returns a `UserHeader` given a registration code plus password or recovery key (`UserUsernameLookupData`).
 * New endpoint `GET /api/v3/events/photographerreport` returns a paginated photography-coverage report (`Paginated<ShutternautScheduleReportData>`) of events flagged as needing a photographer and/or assigned a Shutternaut.
 * New endpoint `GET /api/v3/events/photographerreport/download` returns the same report as a CSV of all matching rows.
+* `GET /api/v3/users/match/allnames/:search_string` now accepts `?sort=favorites`, which sorts users the requester has favorited first.
+>>>>>>> upstream/master
