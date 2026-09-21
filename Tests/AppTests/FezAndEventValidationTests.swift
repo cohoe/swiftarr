@@ -78,6 +78,12 @@ class FezAndEventValidationTests: XCTestCase {
 		XCTAssertEqual(try validationErrors(FezContentData.self, fezJSON()), [])
 	}
 
+	func testFez_BothCreatorFlagsAreRejected() throws {
+		let json = fezJSON().dropLast() + #","createdByModerator":true,"createdByTwitarrTeam":true}"#
+		let errs = try validationErrors(FezContentData.self, String(json))
+		XCTAssertTrue(errs.contains("cannot create as both @moderator and @TwitarrTeam"), "errs=\(errs)")
+	}
+
 	// MARK: - FezContentData — startTime/endTime throw paths
 
 	func testFez_StartTimeWithoutEndTime_Throws() {
@@ -161,6 +167,45 @@ class FezAndEventValidationTests: XCTestCase {
 			endTime: "2024-03-13T16:00:00.000Z"
 		)
 		XCTAssertThrowsError(try validationErrors(PersonalEventContentData.self, json))
+	}
+
+	// MARK: - FezController.resolveVisibilityForCreate (issue #470 "unlisted" Private Events)
+
+	func testResolveVisibilityForCreate_LFG_DefaultsToPublic() throws {
+		let visibility = try FezController().resolveVisibilityForCreate(fezType: .activity, requested: nil)
+		XCTAssertEqual(visibility, .public)
+	}
+
+	func testResolveVisibilityForCreate_Seamail_DefaultsToPrivate() throws {
+		let visibility = try FezController().resolveVisibilityForCreate(fezType: .closed, requested: nil)
+		XCTAssertEqual(visibility, .private)
+	}
+
+	func testResolveVisibilityForCreate_PersonalEvent_DefaultsToPrivate() throws {
+		let visibility = try FezController().resolveVisibilityForCreate(fezType: .personalEvent, requested: nil)
+		XCTAssertEqual(visibility, .private)
+	}
+
+	func testResolveVisibilityForCreate_PrivateEvent_DefaultsToPrivate() throws {
+		let visibility = try FezController().resolveVisibilityForCreate(fezType: .privateEvent, requested: nil)
+		XCTAssertEqual(visibility, .private)
+	}
+
+	func testResolveVisibilityForCreate_PrivateEvent_CanRequestUnlisted() throws {
+		let visibility = try FezController().resolveVisibilityForCreate(fezType: .privateEvent, requested: .unlisted)
+		XCTAssertEqual(visibility, .unlisted)
+	}
+
+	func testResolveVisibilityForCreate_PrivateEvent_RejectsPublic() {
+		XCTAssertThrowsError(try FezController().resolveVisibilityForCreate(fezType: .privateEvent, requested: .public))
+	}
+
+	func testResolveVisibilityForCreate_LFG_RejectsNonDefault() {
+		XCTAssertThrowsError(try FezController().resolveVisibilityForCreate(fezType: .activity, requested: .private))
+	}
+
+	func testResolveVisibilityForCreate_Seamail_RejectsNonDefault() {
+		XCTAssertThrowsError(try FezController().resolveVisibilityForCreate(fezType: .closed, requested: .unlisted))
 	}
 
 	// MARK: - UserRecoveryData

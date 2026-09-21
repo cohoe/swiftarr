@@ -17,6 +17,7 @@ for (let btn of document.querySelectorAll('[data-action]')) {
 		case "muteForum": // Different than mute[User] due to code in spinnerButtonAction.
 		case "pinForum":
 		case "muteSeamail":
+		case "muteFez":
 		case "unblock":
 		case "unfavorite":
 		case "unmute":
@@ -611,9 +612,22 @@ async function submitAJAXForm(formElement, event) {
 		formElement.querySelector('.alert-success')?.classList.add("d-none");
 		let response = await fetch(formElement.action, { method: 'POST', body: uploadBody });
 		if (response.status < 300) {
-			let successURL = formElement.dataset.successurl;
+			let locationHeader = response.headers.get('Location');
+			let successURL = (locationHeader && locationHeader.startsWith('/seamail'))
+				? locationHeader
+				: formElement.dataset.successurl;
 			if (!successURL) {
 				location.reload();
+				return;
+			}
+			if (successURL == "createdFez") {
+				let data = await response.json();
+				location.assign("/lfg/" + data.fezID);
+				return;
+			}
+			if (successURL == "createdPrivateEvent") {
+				let data = await response.json();
+				location.assign("/privateevent/" + data.fezID);
 				return;
 			}
 			if (successURL == "message") {
@@ -952,6 +966,25 @@ function updateParticipantFormElement(participantsDiv) {
 	}
 	let hiddenFormElem = document.getElementById('participants_hidden');
 	hiddenFormElem.value = names;
+}
+
+function syncSeamailCreatorName() {
+	let creatorName = document.getElementById('seamailCreatorName');
+	if (!creatorName) {
+		return;
+	}
+	let selected = document.querySelector('input[name="postAs"]:checked')?.value;
+	let name = creatorName.dataset.usernameSelf;
+	if (selected === 'moderator') {
+		name = creatorName.dataset.usernameModerator;
+	}
+	else if (selected === 'twitarrteam') {
+		name = creatorName.dataset.usernameTwitarrteam;
+	}
+	creatorName.textContent = '@' + name;
+}
+for (let radio of document.querySelectorAll('input[name="postAs"]')) {
+	radio.addEventListener('change', syncSeamailCreatorName);
 }
 
 // MARK: - User Profile Handlers
