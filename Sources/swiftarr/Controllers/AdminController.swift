@@ -46,12 +46,15 @@ struct AdminController: APIRouteCollection {
 		ttAuthGroup.post("clients", clientAppIDParam, "delete", use: clientAppDeleteHandler)
 		ttAuthGroup.delete("clients", clientAppIDParam, use: clientAppDeleteHandler)
 
+		ttAuthGroup.on(.POST, "dailytheme", "create", body: .collect(maxSize: ByteCount(value: Settings.shared.imageMaxBodySize)), use: addDailyThemeHandler).setUsedForPreregistration()
+		ttAuthGroup.on(.POST, "dailytheme", dailyThemeIDParam, "edit", body: .collect(maxSize: ByteCount(value: Settings.shared.imageMaxBodySize)), use: editDailyThemeHandler).setUsedForPreregistration()
+		ttAuthGroup.post("dailytheme", dailyThemeIDParam, "delete", use: deleteDailyThemeHandler).setUsedForPreregistration()
+		ttAuthGroup.delete("dailytheme", dailyThemeIDParam, use: deleteDailyThemeHandler).setUsedForPreregistration()
+		ttAuthGroup.get("dailytheme", "schedule", "verify", use: dailyThemeScheduleVerifyHandler).setUsedForPreregistration()
+		ttAuthGroup.post("dailytheme", "schedule", "apply", use: dailyThemeScheduleApplyHandler).setUsedForPreregistration()
+
 		// endpoints available for THO and Admin only
 		let thoAuthGroup = adminRoutes.tokenRoutes(minAccess: .tho)
-		thoAuthGroup.on(.POST, "dailytheme", "create", body: .collect(maxSize: ByteCount(value: Settings.shared.imageMaxBodySize)), use: addDailyThemeHandler).setUsedForPreregistration()
-		thoAuthGroup.on(.POST, "dailytheme", dailyThemeIDParam, "edit", body: .collect(maxSize: ByteCount(value: Settings.shared.imageMaxBodySize)), use: editDailyThemeHandler).setUsedForPreregistration()
-		thoAuthGroup.post("dailytheme", dailyThemeIDParam, "delete", use: deleteDailyThemeHandler).setUsedForPreregistration()
-		thoAuthGroup.delete("dailytheme", dailyThemeIDParam, use: deleteDailyThemeHandler).setUsedForPreregistration()
 
 		// Note that there's several promote method that promote to different access levels, but
 		// only one demote, that returns the user to Verified.
@@ -225,6 +228,41 @@ struct AdminController: APIRouteCollection {
 		let theme = try await DailyTheme.findFromParameter(dailyThemeIDParam, on: req)
 		try await theme.delete(on: req.db)
 		return .noContent
+	}
+
+	/// `GET /api/v3/admin/dailytheme/schedule/verify`
+	///
+	/// Compares the daily themes in the database against the theme days in the schedule (events titled "Theme: ...") and returns what
+	/// would be created, modified, or deleted. Nothing is changed. Themes are matched by cruise day.
+	///
+	/// - Parameter cruiseDayOffset: Optional query parameter. Added to each theme's computed cruise day; useful for testing outside the cruise week. Defaults to 0.
+	/// - Throws: A 5xx response should be reported as a likely bug, please and thank you.
+	/// - Returns: `DailyThemeUpdateDifferenceData`
+	func dailyThemeScheduleVerifyHandler(_ req: Request) async throws -> DailyThemeUpdateDifferenceData {
+		let offset = req.query[Int.self, at: "cruiseDayOffset"] ?? 0
+		return try await DailyThemeScheduleSync.compute(cruiseDayOffset: offset, on: req.db).differenceData()
+	}
+
+	/// `POST /api/v3/admin/dailytheme/schedule/apply`
+	///
+	/// Recomputes the difference from the schedule and applies it to the daily themes. Existing theme images are preserved.
+	///
+	/// - Parameter skipNew: Query parameter, `true` to not create themes. Defaults to false.
+	/// - Parameter skipDiff: Query parameter, `true` to not modify existing themes. Defaults to false.
+	/// - Parameter skipDelete: Query parameter, `true` to not delete themes. Defaults to false.
+	/// - Parameter cruiseDayOffset: Query parameter, added to each theme's computed cruise day. Defaults to 0.
+	/// - Throws: A 5xx response should be reported as a likely bug, please and thank you.
+	/// - Returns: `HTTP 200 OK` if the changes were applied.
+	func dailyThemeScheduleApplyHandler(_ req: Request) async throws -> HTTPStatus {
+		let user = try req.auth.require(UserCacheData.self)
+		try user.guardCanCreateContent(customErrorString: "user cannot modify daily themes")
+		let skipNew = req.query[String.self, at: "skipNew"]?.lowercased() == "true"
+		let skipDiff = req.query[String.self, at: "skipDiff"]?.lowercased() == "true"
+		let skipDelete = req.query[String.self, at: "skipDelete"]?.lowercased() == "true"
+		let offset = req.query[Int.self, at: "cruiseDayOffset"] ?? 0
+		let sync = try await DailyThemeScheduleSync.compute(cruiseDayOffset: offset, on: req.db)
+		try await sync.apply(skipNew: skipNew, skipDiff: skipDiff, skipDelete: skipDelete, on: req.db)
+		return .ok
 	}
 
 	/// `GET /api/v3/admin/serversettings`
@@ -912,7 +950,14 @@ struct AdminController: APIRouteCollection {
 					performer.with(\.$events)
 				}
 				.all()
-		let userData = users.compactMap { UserSaveRestoreData(user: $0) }
+		// LFGs and Personal/Private Events travel with their owner. Seamail is never exported.
+		let ownedFezzes = try await FriendlyFez.query(on: req.db)
+				.filter(\.$fezType ~~ FezType.preregistrationTypes)
+				.filter(\.$cancelled == false)
+				.sort(\.$createdAt, .ascending)
+				.all()
+		let fezzesByOwner = Dictionary(grouping: ownedFezzes, by: { $0.$owner.id })
+		let userData = users.compactMap { UserSaveRestoreData(user: $0, fezzes: fezzesByOwner[$0.id ?? UUID()] ?? []) }
 		let performers = try await Performer.query(on: req.db).filter(\.$officialPerformer == true).with(\.$events).all()
 		let performerData = try performers.map { try PerformerUploadData($0) }
 		let needsPhotographerEvents = try await Event.query(on: req.db).filter(\.$needsPhotographer == true).all().map { $0.uid }
@@ -976,7 +1021,7 @@ struct AdminController: APIRouteCollection {
 			throw Abort(.internalServerError, reason: "Userfile upload dir not empty after emptying it--this could lead to applying a previously-uploaded userfile and not the one you tried to upload just now.")
 		}
 				
-		FileManager.default.createFile(atPath: destFilePath.path, contents: nil)
+		_ = FileManager.default.createFile(atPath: destFilePath.path, contents: nil)
 		if let fileHandle = FileHandle(forWritingAtPath: destFilePath.path)  {
 			defer {
 				try? fileHandle.close()
@@ -1045,6 +1090,9 @@ struct AdminController: APIRouteCollection {
 		}
 		for userToImport in importData.users {
 			await importUserFavorites(req, userToImport: userToImport, verifyOnly: verifyOnly, verification: &verification)
+		}
+		for userToImport in importData.users {
+			await importUserFezzes(req, userToImport: userToImport, verifyOnly: verifyOnly, verification: &verification)
 		}
 		for performer in importData.performers {
 			await importPerformer(req, performerData: performer, verifyOnly: verifyOnly, verification: &verification)
@@ -1260,6 +1308,94 @@ struct AdminController: APIRouteCollection {
 		}
 	}
 	
+	// Imports the LFGs and Personal/Private Events a user created. Must be called after the users have been imported.
+	// Fezzes are only attached to a DB user whose registration code matches the file's user, so a username or reg code conflict
+	// can't hand someone else's account these fezzes.
+	// Fezzes keep their exported IDs. Safe to re-run: a fez is skipped if the owner already has one with that ID (or, for older
+	// userfiles without IDs, one with the same type, title and start time). An ID that belongs to another user's fez is an error.
+	// If `verifyOnly` is set, no db changes occur, but `verification` gets filled in with the counts and any import errors.
+	func importUserFezzes(_ req: Request, userToImport: UserSaveRestoreData, verifyOnly: Bool, verification: inout BulkUserUpdateVerificationData) async {
+		guard let fezzesToImport = userToImport.fezzes, !fezzesToImport.isEmpty else {
+			return
+		}
+		let validFezzes = fezzesToImport.filter { $0.fezType.isPreregistrationType }
+		let invalidCount = fezzesToImport.count - validFezzes.count
+		verification.fezCounts.totalRecordsProcessed += fezzesToImport.count
+		if invalidCount > 0 {
+			verification.fezCounts.errorCount += invalidCount
+			verification.otherErrors.append("User \(userToImport.username) has \(invalidCount) chat(s) in the userfile that aren't LFGs or Personal/Private Events, which can't be imported.")
+		}
+		do {
+			let user = try await User.query(on: req.db).filter(\.$username == userToImport.username).first()
+			guard let user = user else {
+				if verifyOnly {
+					// The owner hasn't been created yet (verify doesn't save users), so there's nothing to dedupe against.
+					verification.fezCounts.importedCount += validFezzes.count
+				}
+				else {
+					verification.fezCounts.errorCount += validFezzes.count
+					verification.otherErrors.append("Couldn't import LFGs/events for \(userToImport.username): user was not imported.")
+				}
+				return
+			}
+			guard user.verification == userToImport.verification.lowercased() else {
+				verification.fezCounts.errorCount += validFezzes.count
+				verification.otherErrors.append("Couldn't import LFGs/events for \(userToImport.username): the account in the database has a different registration code.")
+				return
+			}
+			let userID = try user.requireID()
+			for fezData in validFezzes {
+				if let fezID = fezData.id {
+					// Includes deleted fezzes, since their IDs are still taken.
+					if let existing = try await FriendlyFez.query(on: req.db).withDeleted().filter(\.$id == fezID).first() {
+						if existing.$owner.id == userID {
+							verification.fezCounts.duplicateCount += 1
+						}
+						else {
+							verification.fezCounts.errorCount += 1
+							verification.otherErrors.append("Couldn't import \"\(fezData.title)\" for \(userToImport.username): its ID \(fezID) belongs to another user's chat.")
+						}
+						continue
+					}
+				}
+				else {
+					let existing = try await FriendlyFez.query(on: req.db)
+							.filter(\.$owner.$id == userID)
+							.filter(\.$fezType == fezData.fezType)
+							.filter(\.$title == fezData.title)
+							.filter(\.$startTime == fezData.startTime)
+							.first()
+					if existing != nil {
+						verification.fezCounts.duplicateCount += 1
+						continue
+					}
+				}
+				if !verifyOnly {
+					let fez = FriendlyFez(owner: userID, fezType: fezData.fezType, visibility: fezData.visibility, title: fezData.title,
+							info: fezData.info, location: fezData.location, startTime: nil, endTime: nil,
+							minCapacity: fezData.minCapacity, maxCapacity: fezData.maxCapacity)
+					// Keep the exporting server's ID so links to this fez work on both servers.
+					fez.id = fezData.id
+					// The exported times are already port time; set them directly rather than converting again.
+					fez.startTime = fezData.startTime
+					fez.endTime = fezData.endTime
+					fez.participantArray = [userID]
+					try await fez.save(on: req.db)
+					try await fez.$participants.attach(user, on: req.db, {
+						$0.readCount = 0
+						$0.hiddenCount = 0
+					})
+					_ = try await storeNextJoinedAppointment(userID: userID, on: req)
+				}
+				verification.fezCounts.importedCount += 1
+			}
+		}
+		catch {
+			verification.fezCounts.errorCount += 1
+			verification.otherErrors.append("Error importing LFGs/events for \(userToImport.username): \(error.localizedDescription)")
+		}
+	}
+
 	// Imports a single performer into the Performer table. Works with both official and non-official (shadow) performers.
 	// For a shadow performer, you must set the userID of the Twitarr user that 'owns' the performer object.
 	// If `verifyOnly` is set, no db changes occur, but `verification` gets filled in with any import errors.

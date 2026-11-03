@@ -270,7 +270,7 @@ public struct DailyThemeData: Content {
 	/// An image that relates to the theme.
 	var image: String?
 	/// Day of cruise, counted from `Settings.shared.cruiseStartDate`. 0 is embarkation day. Values could be negative (e.g. Day -1 is "Anticipation Day")
-	var cruiseDay: Int32
+	var cruiseDay: Int
 }
 
 extension DailyThemeData {
@@ -2837,6 +2837,43 @@ extension UserNotificationData {
 		self.microKaraokeFinishedSongCount = 0
 		self.alertWords = []
 		self.nextJoinedLFGTime = nil
+	}
+}
+
+/// A single entry from a user's history of received notifications.
+///
+/// Returned by: `GET /api/v3/notification/log`
+/// See `AlertController.notificationLogHandler(_:)`.
+public struct NotificationLogData: Content {
+	/// Matches the `notificationID` sent in the live `SocketNotificationData` push for this event, so clients
+	/// can de-dupe a notification they already saw live against this log.
+	var id: UUID
+	/// The type of event that happened. See `SocketNotificationData.NotificationTypeData` for values.
+	var type: SocketNotificationData.NotificationTypeData
+	/// A string describing what happened, suitable for adding to a notification alert.
+	var info: String
+	/// An ID of an Announcement, Fez, Twarrt, ForumPost, or Event.
+	var contentID: String
+	/// An ID of a related parent object, when one exists. See `SocketNotificationData.secondaryContentID`.
+	var secondaryContentID: String?
+	/// When the notification was sent.
+	var createdAt: Date
+}
+
+extension NotificationLogData {
+	/// Returns nil if `entry.typeKey` doesn't match any known `NotificationTypeData` case (e.g. the case was
+	/// renamed after the row was written). The caller should skip the row rather than fail the whole log --
+	/// one stale row must not take down every future fetch of a user's notification history.
+	init?(_ entry: NotificationLogEntry) throws {
+		guard let decodedType = SocketNotificationData.NotificationTypeData(databaseKey: entry.typeKey) else {
+			return nil
+		}
+		id = try entry.requireID()
+		type = decodedType
+		info = entry.info
+		contentID = entry.contentID
+		secondaryContentID = entry.secondaryContentID
+		createdAt = entry.createdAt ?? Date()
 	}
 }
 

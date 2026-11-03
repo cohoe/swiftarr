@@ -62,6 +62,8 @@ public struct BulkUserUpdateVerificationData: Content {
 	var dailyThemeCounts: BulkUserUpdateCounts
 	/// Counts for Hunt import. Includes Hunts and their child Puzzles as a single unit.
 	var huntCounts: BulkUserUpdateCounts
+	/// Counts for LFGs and Personal/Private Events created by users. Seamail is never imported.
+	var fezCounts: BulkUserUpdateCounts
 
 	/// Cases where the server has a registered user with the same regcode as the update file, but the usernames differ.
 	/// This may mean the user preregistered and then (somehow) registered on-boat with a different username before the bulk import happened.
@@ -84,6 +86,7 @@ extension BulkUserUpdateVerificationData {
 		needsPhotographerCounts = BulkUserUpdateCounts(totalRecordsProcessed: 0, importedCount: 0, duplicateCount: 0, errorCount: 0)
 		dailyThemeCounts = BulkUserUpdateCounts(totalRecordsProcessed: 0, importedCount: 0, duplicateCount: 0, errorCount: 0)
 		huntCounts = BulkUserUpdateCounts(totalRecordsProcessed: 0, importedCount: 0, duplicateCount: 0, errorCount: 0)
+		fezCounts = BulkUserUpdateCounts(totalRecordsProcessed: 0, importedCount: 0, duplicateCount: 0, errorCount: 0)
 		regCodeConflicts = []
 		usernameConflicts = []
 		errorNotImported = []
@@ -100,7 +103,35 @@ public struct DailyThemeUploadData: Content {
 	/// An optional image that relates to the theme.
 	var image: ImageUploadData?
 	/// Day of cruise, counted from `Settings.shared.cruiseStartDate`. 0 is embarkation day. Values could be negative (e.g. Day -1 is "Anticipation Day")
-	var cruiseDay: Int32
+	var cruiseDay: Int
+}
+
+/// A daily theme as derived from the schedule. Not yet stored in the database.
+public struct DailyThemeProposedData: Content {
+	var title: String
+	var info: String
+	/// Day of cruise, counted from `Settings.shared.cruiseStartDate`. 0 is embarkation day.
+	var cruiseDay: Int
+}
+
+/// A daily theme whose title or info would change when loaded from the schedule.
+public struct DailyThemeModifiedData: Content {
+	/// The theme as it currently exists in the database.
+	var existing: DailyThemeData
+	/// The values that would be applied from the schedule. The existing image is kept.
+	var proposed: DailyThemeProposedData
+}
+
+/// Shows the differences between the current `DailyTheme`s and the theme days found in the `Event` schedule.
+///
+/// Returned by: `GET /api/v3/admin/dailytheme/schedule/verify`
+public struct DailyThemeUpdateDifferenceData: Content {
+	/// Themes in the schedule with no matching `DailyTheme` for that day.
+	var createdThemes: [DailyThemeProposedData] = []
+	/// Themes whose title or info differ between the database and the schedule.
+	var modifiedThemes: [DailyThemeModifiedData] = []
+	/// `DailyTheme`s for days with no theme event in the schedule.
+	var deletedThemes: [DailyThemeData] = []
 }
 
 /// Used to update the `Event` database.
@@ -390,7 +421,7 @@ struct DailyThemeSaveRestoreData: Content, Sendable {
 	let title: String
 	let info: String
 	let image: String?
-	let cruiseDay: Int32
+	let cruiseDay: Int
 }
 
 extension DailyThemeSaveRestoreData {
@@ -850,12 +881,45 @@ struct UserSaveRestoreData: Content, Sendable {
 	let favoriteUsers: [String]
 	/// For shadow event organizers, their associated Performer data (which contains the event UIDs for the events 'they're running).
 	let performer: PerformerUploadData?
+	/// LFGs and Personal/Private Events this user created. Optional so that userfiles made before this field existed still decode.
+	let fezzes: [FezSaveRestoreData]?
 	// karaoke, game favorites?
+}
+
+/// An LFG or Personal/Private Event, stored under the user that owns it. Seamail, cancelled, and deleted fezzes are never saved. Times are the raw database values (port time),
+/// so no time conversion happens on import. Imported fezzes keep their IDs so links to them work on both servers; the owner is always the sole participant.
+struct FezSaveRestoreData: Content, Sendable {
+	/// The fez's ID on the exporting server. Optional so that userfiles made before this field existed still decode; those fezzes get new IDs.
+	let id: UUID?
+	let fezType: FezType
+	let visibility: FezVisibility
+	let title: String
+	let info: String
+	let location: String?
+	let startTime: Date?
+	let endTime: Date?
+	let minCapacity: Int
+	let maxCapacity: Int
+}
+
+extension FezSaveRestoreData {
+	init(_ fez: FriendlyFez) {
+		id = fez.id
+		fezType = fez.fezType
+		visibility = fez.visibility
+		title = fez.title
+		info = fez.info
+		location = fez.location
+		startTime = fez.startTime
+		endTime = fez.endTime
+		minCapacity = fez.minCapacity
+		maxCapacity = fez.maxCapacity
+	}
 }
 
 extension UserSaveRestoreData {
 	/// For this to work: Must use `.with(\.$roles).with(\.$favoriteEvents).with(\.$favorites).with(\.$performer).with(\.$performer.events)` in query
-	init?(user: User) {
+	init?(user: User, fezzes: [FriendlyFez] = []) {
 		guard let regCode = user.unspentVerification else {
 			return nil
 		}
@@ -883,6 +947,7 @@ extension UserSaveRestoreData {
 		favoriteEvents = user.$favoriteEvents.pivots.compactMap { $0.favorite ? $0.event.uid : nil }
 		photographerEvents = user.$favoriteEvents.pivots.compactMap { $0.photographer ? $0.event.uid : nil }
 		favoriteUsers = user.favorites.compactMap { $0.favorite.username }
+		self.fezzes = fezzes.map { FezSaveRestoreData($0) }
 		if let perf = user.performer {
 			performer = try? PerformerUploadData(perf)
 		}

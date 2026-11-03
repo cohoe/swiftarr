@@ -65,6 +65,12 @@ public struct UserCacheData: Authenticatable, SessionAuthenticatable, Sendable {
 		return mutes ?? []
 	}
 
+	/// True if the server is in preregistration and this user is below `minAccessLevel`, meaning they get the restricted
+	/// preregistration experience. Users at or above `minAccessLevel` are not restricted.
+	var preregistrationApplies: Bool {
+		Settings.shared.enablePreregistration && !accessLevel.hasAccess(Settings.shared.minAccessLevel)
+	}
+
 	/// TwitarrTeam and above, or users granted the Account Manager role, may look up accounts by
 	/// registration code and re-enable one-time password recovery.
 	var canManageAccounts: Bool {
@@ -432,6 +438,16 @@ extension Request {
 			let cacheLock = request.application.locks.lock(for: Application.UserCacheLockKey.self)
 			let users = cacheLock.withLock({
 				Application.userCacheStorage.usersByID.compactMap { $0.value.accessLevel >= level ? $0.value : nil }
+			})
+			return users
+		}
+
+		// Returns all cached users who hold the given role. Unlike `allUsersWithAccessLevel`, this has no
+		// hierarchy--only users whose `userRoles` literally contains `role` are returned.
+		func allUsersWithRole(_ role: UserRoleType) -> [UserCacheData] {
+			let cacheLock = request.application.locks.lock(for: Application.UserCacheLockKey.self)
+			let users = cacheLock.withLock({
+				Application.userCacheStorage.usersByID.compactMap { $0.value.userRoles.contains(role) ? $0.value : nil }
 			})
 			return users
 		}
