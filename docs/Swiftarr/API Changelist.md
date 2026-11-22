@@ -387,3 +387,7 @@ additive; the existing count fields are unchanged and are now derived from these
 - `CategoryData` gains an optional `defaultSort` field to direct clients to the preferred thread sort for a category. Splashdot sets this to `create` (newest threads first).
 - Category thread requests now honor `CategoryData.defaultSort` when `sort` is omitted. Supported values are `create`, `title`, `update`, and `event`.
 - Event categories advertise `defaultSort: "event"`. Explicit `sort=event` requests for non-event categories return HTTP 400.
+
+## Nov 22, 2026
+
+- `SocketNotificationData` gains an optional `author: UserHeader`, set for forum/twarrt mention, alertword, and chat unread message notifications.

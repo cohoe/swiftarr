@@ -776,11 +776,13 @@ extension TwitarrController {
 			}
 			if !adds.isEmpty {
 				let addUUIDs = req.userCache.getHeaders(usernames: adds).map { $0.userID }
-				let authorName = req.userCache.getUser(twarrt.$author.id)?.username
+				let authorHeader = req.userCache.getUser(twarrt.$author.id)?.makeHeader()
+				let authorName = authorHeader?.username
 				let infoStr =
 					"\(authorName == nil ? "A user" : "User @\(authorName!)") posted a twarrt that @mentioned you."
 				group.addTask {
-					try await addNotifications(users: addUUIDs, type: .twarrtMention(twarrtID), info: infoStr, on: req)
+					try await addNotifications(users: addUUIDs, type: .twarrtMention(twarrtID), info: infoStr,
+							author: authorHeader, on: req)
 				}
 			}
 
@@ -800,7 +802,8 @@ extension TwitarrController {
 				}
 			}
 			if addingAlertWords.count > 0 {
-				let authorName = req.userCache.getUser(twarrt.$author.id)?.username
+				let authorHeader = req.userCache.getUser(twarrt.$author.id)?.makeHeader()
+				let authorName = authorHeader?.username
 				addingAlertWords.forEach { word in
 					let infoStr =
 						"\(authorName == nil ? "A user" : "User @\(authorName!)") posted a twarrt containing your alert word '\(word)'."
@@ -812,6 +815,7 @@ extension TwitarrController {
 							users: validUserIDs,
 							type: .alertwordTwarrt(word, twarrtID),
 							info: infoStr,
+							author: authorHeader,
 							on: req
 						)
 					}
