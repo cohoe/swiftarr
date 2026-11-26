@@ -2,6 +2,7 @@ import Fluent
 import FluentPostgresDriver
 import Leaf
 import LeafKit
+import Markdown
 import Metrics
 import Prometheus
 import Queues
@@ -529,10 +530,9 @@ struct SwiftarrConfigurator {
 
 		// Custom Leaf tags
 		app.leaf.tags["addJocomoji"] = AddJocomojiTag()
-		app.leaf.tags["formatTwarrtText"] = try FormatPostTextTag(.twarrt)
-		app.leaf.tags["formatPostText"] = try FormatPostTextTag(.forumpost)
-		app.leaf.tags["formatFezText"] = try FormatPostTextTag(.fez)
-		app.leaf.tags["formatSeamailText"] = try FormatPostTextTag(.seamail)
+		app.leaf.tags["formatPostText"] = FormatPostTextTag(.forumpost)
+		app.leaf.tags["formatFezText"] = FormatPostTextTag(.fez)
+		app.leaf.tags["formatSeamailText"] = FormatPostTextTag(.seamail)
 		app.leaf.tags["relativeTime"] = RelativeTimeTag()
 		app.leaf.tags["eventTime"] = EventTimeTag()
 		app.leaf.tags["staticTime"] = StaticTimeTag()
@@ -543,7 +543,7 @@ struct SwiftarrConfigurator {
 		app.leaf.tags["cruiseDayIndex"] = CruiseDayIndexTag()
 		app.leaf.tags["gameRating"] = GameRatingTag()
 		app.leaf.tags["localTime"] = LocalTimeTag()
-		app.leaf.tags["markdownTextTag"] = MarkdownTextTag()
+		app.leaf.tags["markdownTextTag"] = MarkdownBodyTag()
 		app.leaf.tags["dinnerTeamTag"] = DinnerTeamTag()
 		app.leaf.tags["lfgLabel"] = LFGLabelTag()
 		app.leaf.tags["notEmpty"] = NotEmptyTag()
@@ -635,9 +635,6 @@ struct SwiftarrConfigurator {
 		app.migrations.add(CreatePostLikesSchema(), to: .psql)
 		app.migrations.add(CreateEventSchema(), to: .psql)
 		app.migrations.add(CreateEventFavoriteSchema(), to: .psql)
-		app.migrations.add(CreateTwarrtSchema(), to: .psql)
-		app.migrations.add(CreateTwarrtEditSchema(), to: .psql)
-		app.migrations.add(CreateTwarrtLikesSchema(), to: .psql)
 		app.migrations.add(CreateFriendlyFezSchema(), to: .psql)
 		app.migrations.add(CreateFezParticipantSchema(), to: .psql)
 		app.migrations.add(CreateFezPostSchema(), to: .psql)
